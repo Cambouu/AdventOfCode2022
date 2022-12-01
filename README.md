@@ -35,15 +35,29 @@ We provided 2 empty files in this folder to demonstrate the expected naming conv
 
 ## Editing this README
 
-After forking, please edit the ```README.md``` file with your name and matriculation number bellow the title.
+After forking, please edit the ```README.md``` file with your name and matriculation number above the title using the following format:
+
+```
+---
+name: Jens Zentgraf
+mat: 1234567
+aocname: Jens Zentgraf
+aocnumber: 654321
+---
+```
+
+Here, "name" refers to your real name (as it appears in official university transcripts), "mat" is your matriculation number, "aocname" is the name you use in AoC (as shown in the private Leaderboard) and "aocnumber" is your AoC user number. You can find it in AoC by clicking on "Settings". You can show yourself by name (even with a picture) or as "(anonymous user #654321)". This number (here shown as 654321) is your user number in AoC.
+
+Please make sure that there is no empty line before this header,  and the first line is exactly three (3) dashes (---).
+Please make also sure that the header ends with the same three dashes (---) and that there is an empty line after it.
 
 Once Advent of Code 2022 has started, please add your username and number on this document.
 
 ## AoC 2022
 
-Each day in between the 1st and 25th of December, a new two-part problem will be posted on [Advent of code](adventofcode.com) for you to solve. Each solved problem gives you a star. You can get up to 50 stars (two stars per day). You will need to collect at least 35 stars before **midnight of February 10, 2022** to qualify for the exam. The code, input and output files must be present in a git repository.
+Each day in between the 1st and 25th of December, a new two-part problem will be posted on [Advent of code](adventofcode.com) for you to solve. Each solved problem gives you a star. You can get up to 50 stars (two stars per day). You will need to collect at least 35 stars before **midnight of January 31, 2023** to qualify for the exam. The code, input and output files must be present in a git repository.
 
-On the first day of December, the first challenge and leaderboard will be available. On that day, please go to [Leaderboard](https://adventofcode.com/2021/leaderboard/private) and register yourself using the code provided on [CMS](https://cms.sic.saarland/progpy/).
+On the first day of December, the first challenge and leaderboard will be available. On that day, please go to [Leaderboard](https://adventofcode.com/2022/leaderboard/private) and register yourself using the code provided on [CMS](https://cms.sic.saarland/progpy/).
 
 ## Ethics and Plagiarism Policy
 
