@@ -39,10 +39,10 @@ After forking, please edit the ```README.md``` file with your name and matricula
 
 ```
 ---
-name: Jens Zentgraf
-mat: 1234567
-aocname: Jens Zentgraf
-aocnumber: 654321
+name: Jose Maria Campo Viñas
+mat: 7030601
+aocname: Cambouu
+aocnumber: 2234863
 ---
 ```
 
