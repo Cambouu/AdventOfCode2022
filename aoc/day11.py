@@ -14,11 +14,12 @@ def read_file():
     """
     monkey_file = []
     monkey_regex = re.compile((
-        r'\s{0}Monkey\s(\d+):\n\s\sStarting\sitems:\s([0-9\s,]+)\n'
-        r'\s{2}Operation:\snew\s=\sold\s([\+\*])\s([0-9(?:old)]+)\n'
-        r'\s{2}Test:\sdivisible\sby\s(\d+)\n'
-        r'\s{4}If\strue:\sthrow\sto\smonkey\s(\d+)\n'
-        r'\s{4}If\sfalse:\sthrow\sto\smonkey\s(\d+)'
+        r'\s{0}Monkey (\d+):\n'
+        r'\s{2}Starting items: ([0-9\s,]+)\n'
+        r'\s{2}Operation: new = old ([\+\*]) ([0-9(?:old)]+)\n'
+        r'\s{2}Test: divisible by (\d+)\n'
+        r'\s{4}If true: throw to monkey (\d+)\n'
+        r'\s{4}If false: throw to monkey (\d+)'
     ))
 
     with open(os.path.join('.', 'aoc', 'day11.txt'), 'r') as f:
@@ -66,7 +67,7 @@ class Monkey():
         #return 'Monkey {0}: {1}'.format(self.number, ', '.join(str(i) for i in self.items))
         return 'Monkey {0} inspected items {1} times'.format(self.number, self.inspection)
 
-    def throw_items(self) -> list(tuple(int, int)):
+    def throw_items(self):
         """
         this object takes all items, computes its respective operation
         and yields a tuple with the info to the designated destination monkey number
@@ -125,4 +126,4 @@ if __name__ == '__main__':
     monkeys = [Monkey(m) for m in matches]
     monkeys = keep_away(monkeys)
 
-    print('Monkey business = {0}'.format(monkey_business(monkeys)))
+    print('\nMonkey business = {0}'.format(monkey_business(monkeys)))
