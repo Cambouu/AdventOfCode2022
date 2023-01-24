@@ -18,95 +18,109 @@ def read_file() -> str:
 
 
 class Simulation():
-
+    """
+    Object containing the list of levels of fallen rocks
+    """
     def __init__(self) -> None:
-        self.horizontal_size = 7
-        self.border_left = 0
-        self.border_right = self.horizontal_size + 1
-        self.border_bottom = 0
-        self.border_top = 0
-        self.rocks = set()
+        # Basic layout containing the boundaries
+        self.layout = [int('100000001', 2)]
+        # Base layour containing a filled level
+        self.bottom_layout = [int('111111111', 2)]
+        self.rocks = self.bottom_layout + self.layout * 4
+
+        # Reference to the highest rock
+        self.real_top = 0
+        # Reference of the relative floor
+        self.virtual_bottom = 0
+        # Reference the full relative stack size
+        self.virtual_top = len(self.rocks)
         self.number_of_rocks = 0
     
-    def add_rocks(self, rocks: set[tuple[int, int]]) -> None:
-        self.number_of_rocks += 1
-        self.rocks |= rocks
-
-        new_top = max(rocks, key=lambda x: x[1])
-        self.border_top = max(self.border_top, new_top[1])
-
-        self.update_bottom(rocks)
+    def print(self) -> None:
+        for r in self.rocks[::-1]:
+            print(bin(r))
     
-    def update_bottom(self, rocks: set[tuple[int, int]]) -> None:
-        min_j = min(rocks, key=lambda x: x[1])[1]
-        max_j = max(rocks, key=lambda x: x[1])[1]
+    def add_rock(self, rocks: list[int], rock_virtual_height: int) -> None:
+        """
+        Rocks are added with or-gate to the full tower.
+        The incoming rocks have already been validated and it's not important to
+        track them anymore individually
+        """
+        self.number_of_rocks += 1
+        for i in range(len(rocks)):
+            self.rocks[rock_virtual_height + i] |= rocks[i]
 
-        for j in range(max_j, min_j, -1):
-            baseline = {(i, j) for i in range(0, self.border_right)}
-            intersect = baseline & self.rocks
+        # It should always have a 4 overhead free layout
+        # In case the added rock modifies the top level, 
+        # we add base layouts accordingly to fulfill the 4 layer need
+        self.rocks += self.layout * max(0, rock_virtual_height + i - self.real_top)
+        self.real_top = max(self.real_top, rock_virtual_height + i)
+        self.virtual_top = len(self.rocks)
 
-            if len(intersect) == self.horizontal_size:
-                self.border_bottom = j
-                self.rocks = {r for r in self.rocks if r[1] > j}
+        self.update_bottom((rock_virtual_height, min(rock_virtual_height + len(rocks), self.virtual_top)))
+    
+    def update_bottom(self, height_range: tuple[int, int]) -> None:
+        """
+        In case a line gets full, there is no need to track what is below it anymore
+        Here we delete the list below the full level and record the reference value
+        to have the real full value at the end and not only the relative.
+        Also we dont evaluate the entire column, just the range where the new rock was inserted
+        """
+        for h in range(height_range[0], height_range[1]):
+
+            if self.rocks[h] == self.bottom_layout[0]:
+                self.rocks = self.rocks[h:]
+                self.real_top -= h
+                self.virtual_bottom += h
+                self.virtual_top = len(self.rocks)
                 return
 
 
 class Rock():
-
+    """
+    Rocks will be handled as list of binaries
+    """
     def __init__(self, shape: str, sim: Simulation) -> None:
-        if shape == '-':
-            self.units = {(i, sim.border_top + 4) for i in range(3, 7)}
-        elif shape == '+':
-            self.units = {
-                (4, sim.border_top + 4), 
-                (3, sim.border_top + 5), 
-                (4, sim.border_top + 5), 
-                (5, sim.border_top + 5), 
-                (4, sim.border_top + 6)
-            }
-        elif shape == 'L':
-            self.units = {
-                (3, sim.border_top + 4), 
-                (4, sim.border_top + 4), 
-                (5, sim.border_top + 4), 
-                (5, sim.border_top + 5), 
-                (5, sim.border_top + 6)
-            }
-        elif shape == '|':
-            self.units = {(3, sim.border_top + i) for i in range(4, 8)}
-        elif shape == '°':
-            self.units = {
-                (3, sim.border_top + 4), 
-                (4, sim.border_top + 4), 
-                (3, sim.border_top + 5), 
-                (4, sim.border_top + 5)
-            }
+        if shape == '-'  : self.units = [int('00111100', 2)]
+        elif shape == '+': self.units = [int('00010000', 2), int('00111000', 2), int('00010000', 2)]
+        elif shape == 'L': self.units = [int('00111000', 2), int('00001000', 2), int('00001000', 2)]
+        elif shape == '|': self.units = [int('00100000', 2)] * 4
+        elif shape == '°': self.units = [int('00110000', 2)] * 2
+
+        self.virtual_height = sim.virtual_top - 1
+        self.rock_len = len(self.units)
+
+    def print(self) -> None:
+        layout = int('100000001', 2)
+        for r in self.units[::-1]:
+            print(bin(r | layout))
 
     def lower(self, sim: Simulation) -> bool:
-        new_units = set()
-
-        for unit in self.units:
-            new_unit = (unit[0], unit[1] - 1)
-            if (new_unit[1] <= sim.border_bottom) or (new_unit in sim.rocks):
+        """
+        Determine whether there is collision in a lower level,
+        then reduce the level of insertion to the rock
+        """
+        for i, h in enumerate(range(self.virtual_height, min(self.virtual_height + self.rock_len, sim.virtual_top))):
+            if (h - 1 <= 0) or (self.units[i] & sim.rocks[h - 1]):
                 return False
-            new_units.add(new_unit)
+        
+        self.virtual_height -= 1
 
-        self.units = new_units.copy()
         return True
     
     def push(self, shift: str, sim: Simulation) -> None:
-        new_units = set()
+        """
+        Test for collisions when moving sideways
+        Then perform bitwise shift operation
+        """
+        if shift == '<':
+            new_units = [unit << 1 for unit in self.units]
+        elif shift == '>':
+            new_units = [unit >> 1 for unit in self.units]
 
-        for unit in self.units:
-            if shift == '<':
-                new_unit = (unit[0] - 1, unit[1])
-            elif shift == '>':
-                new_unit = (unit[0] + 1, unit[1])
-            
-            if (new_unit[0] <= sim.border_left) or (new_unit[0] >= sim.border_right) or (new_unit in sim.rocks):
+        for i, h in enumerate(range(self.virtual_height, min(self.virtual_height + self.rock_len, sim.virtual_top))):    
+            if new_units[i] & sim.rocks[h]:
                 return
-            
-            new_units.add(new_unit)
         
         self.units = new_units.copy()
 
@@ -121,21 +135,27 @@ def simulate_part(shifts: str, part: int) -> int:
     shapes = ['-', '+', 'L', '|', '°']
     shape_counter = -1
     shift_counter = -1
-
+    
     while sim.number_of_rocks < number_rocks:
+        # Cycling is handled as modulo of the full length
         shape_counter = (shape_counter + 1) % len(shapes)
         rock = Rock(shapes[shape_counter], sim)
         rock_moving = True
 
+        # After moving the rock, if it's not possible
+        # will exit the loop with the last position of the rock
         while rock_moving:
             shift_counter = (shift_counter + 1) % len(shifts)
             rock.push(shifts[shift_counter], sim)
             rock_moving = rock.lower(sim)
         
-        sim.add_rocks(rock.units)
-        if sim.number_of_rocks % 1000000 == 0: print(sim.number_of_rocks//1000000)
+        # Add rock the cannot be moved anymore
+        sim.add_rock(rock.units, rock.virtual_height)
+        # if sim.number_of_rocks % 1000000 == 0: print(sim.number_of_rocks//1000000)
     
-    return sim.border_top
+    # We deal also with relativity of height, 
+    # so we have to take into account the relative top plus the full base height
+    return sim.real_top + sim.virtual_bottom
 
 
 if __name__ == '__main__':
@@ -147,5 +167,5 @@ if __name__ == '__main__':
     print('Units tall: {0}'.format(tall))
 
     print('\nPoint 2')
-    tall = simulate_part(shifts, 2)
-    print('Units tall: {0}'.format(tall))
+    # tall = simulate_part(shifts, 2)
+    # print('Units tall: {0}'.format(tall))
