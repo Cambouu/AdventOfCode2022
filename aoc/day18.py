@@ -1,8 +1,9 @@
 import os
 import re
 import numpy as np
+from scipy import ndimage
 
-def read_file() -> set[tuple[int]]:
+def read_file() -> np.ndarray:
 
     file_day = os.path.splitext(os.path.basename(__file__))[0]
     file_ext = '_test' if test else ''
@@ -13,101 +14,59 @@ def read_file() -> set[tuple[int]]:
         coordinates = re.findall(coordinates_regex, f.read())
         coordinates = {(int(x), int(y), int(z)) for x, y, z in coordinates}
 
+        # Parse coordinates to start from zero in 3d binary image
         limits = (
-            max(cubes, key=lambda cube: cube[0])[0] - 
-            min(cubes, key=lambda cube: cube[0])[0], 
-            max(cubes, key=lambda cube: cube[1])[1] - 
-            min(cubes, key=lambda cube: cube[1])[1], 
-            max(cubes, key=lambda cube: cube[2])[2] - 
-            min(cubes, key=lambda cube: cube[2])[2], 
-        )
-        cubes = np.zeros(limits, dtype=int)
+            (min(coordinates, key=lambda coordinate: coordinate[0])[0], 
+            max(coordinates, key=lambda coordinate: coordinate[0])[0]),  
 
+            (min(coordinates, key=lambda coordinate: coordinate[1])[1], 
+            max(coordinates, key=lambda coordinate: coordinate[1])[1]),  
+
+            (min(coordinates, key=lambda coordinate: coordinate[2])[2], 
+            max(coordinates, key=lambda coordinate: coordinate[2])[2])
+        )
+        cubes = np.zeros(tuple(l[1] - l[0] + 1 for l in limits), dtype=bool)
+        
+        # Create a 3d binary image and assign coordinates as True
         for x, y, z in coordinates:
-            cubes[x, y, z] = 1
+            cubes[x - limits[0][0], y - limits[1][0], z - limits[2][0]] = True
 
     return cubes
 
 
-def singleton_dim(cubes: set[tuple[int]], x_cut=None, y_cut=None, z_cut=None) -> set[tuple[int]]:
-    
-    if x_cut is not None:
-        return {(y, z) for x, y, z in cubes if x == x_cut}
-    elif y_cut is not None:
-        return {(x, z) for x, y, z in cubes if y == y_cut}
-    elif z_cut is not None:
-        return {(x, y) for x, y, z in cubes if z == z_cut}
-
-
-def watersheds(cubes, x_lim=None, y_lim=None, z_lim=None) -> int:
+def watersheds(cubes: np.ndarray, part=1) -> int:
+    """
+    The idea of watersheds is to submerge the figure layer by layer,
+    after each iteration the new positions will be considered the contour at that point.
+    But in this case we just need to count the contour pixels.
+    """
     contour_count = 0
-
-    if x_lim is not None:
-        slice_prev = set()
-        for x_cut in range(x_lim[0], x_lim[1] + 1):
-            slice_current = singleton_dim(cubes, x_cut=x_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
-        slice_prev = set()
-        for x_cut in range(x_lim[1], x_lim[0] - 1, -1):
-            slice_current = singleton_dim(cubes, x_cut=x_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
-
-    elif y_lim is not None:
-        slice_prev = set()
-        for y_cut in range(y_lim[0], y_lim[1] + 1):
-            slice_current = singleton_dim(cubes, y_cut=y_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
-        slice_prev = set()
-        for y_cut in range(y_lim[1], y_lim[0] - 1, -1):
-            slice_current = singleton_dim(cubes, y_cut=y_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
+    if part == 2:
+        cubes = ndimage.binary_fill_holes(cubes)
     
-    elif z_lim is not None:
-        slice_prev = set()
-        for z_cut in range(z_lim[0], z_lim[1] + 1):
-            slice_current = singleton_dim(cubes, z_cut=z_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
-        slice_prev = set()
-        for z_cut in range(z_lim[1], z_lim[0] - 1, -1):
-            slice_current = singleton_dim(cubes, z_cut=z_cut)
-            contour = slice_current - slice_prev
-            contour_count += len(contour)
-            slice_prev = slice_current
+    for dimension in range(3):
+
+        # Submersion will yield a singleton dimension, parsing the 3d image to 2d
+        shape = list(cubes.shape)
+        shape.pop(dimension)
+
+        # We want both faces front and back on the same dimension
+        slice_front_prev = np.zeros(shape, dtype=bool)
+        slice_back_prev = np.zeros(shape, dtype=bool)
+
+        for cut in range(cubes.shape[dimension]):
+            slice_front_current = np.take(cubes, cut, dimension)
+            slice_back_current = np.take(cubes, cubes.shape[dimension] - 1 - cut, dimension)
+
+            # We compare the slide vs the previous one to obtain only contours
+            contour_front = slice_front_current & ~slice_front_prev
+            contour_back = slice_back_current & ~slice_back_prev
+
+            slice_front_prev = slice_front_current.copy()
+            slice_back_prev = slice_back_current.copy()
+
+            contour_count += contour_front.sum() + contour_back.sum()
     
-    return contour_count
-
-
-def count_sides(cubes: set[tuple[int]]) -> int:
-    contour_count = 0
-
-    x_lim = (
-        min(cubes, key=lambda cube: cube[0])[0], 
-        max(cubes, key=lambda cube: cube[0])[0]
-    )
-    contour_count += watersheds(cubes, x_lim=x_lim)
-
-    y_lim = (
-        min(cubes, key=lambda cube: cube[1])[1], 
-        max(cubes, key=lambda cube: cube[1])[1]
-    )
-    contour_count += watersheds(cubes, y_lim=y_lim)
-
-    z_lim = (
-        min(cubes, key=lambda cube: cube[2])[2], 
-        max(cubes, key=lambda cube: cube[2])[2]
-    )
-    contour_count += watersheds(cubes, z_lim=z_lim)
-
     return contour_count
 
 
@@ -116,6 +75,7 @@ if __name__ == '__main__':
     cubes = read_file()
 
     print('\nPoint 1')
-    print('Surface area: {0}'.format(count_sides(cubes)))
+    print('Surface area: {0}'.format(watersheds(cubes, 1)))
 
     print('\nPoint 2')
+    print('Surface area: {0}'.format(watersheds(cubes, 2)))
