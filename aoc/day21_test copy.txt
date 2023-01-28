@@ -1,0 +1,15 @@
+root: 150 + 150
+dbpl: 5
+cczh: 4 + 596
+zczc: 2
+ptdq: 301 - 3
+dvpt: 3
+lfqf: 4
+humn: 301
+ljgn: 2
+sjmn: 30 * 5
+sllz: 4
+pppw: 600 / 4
+lgvd: 2 * 298
+drzm: 32 - 2
+hmdt: 32
